@@ -15,7 +15,28 @@ class DefaultExcelAdapter {
 	 * @return void
 	 */
 	public function extract($spreadsheet, $args = array()) {
+		$ret = array();
+		return $ret;
+	}
 	
+	/**
+	 * beforeExtract function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	public function beforeExtract($args = array()) {
+		return $args;
+	}
+	
+	/**
+	 * afterExtract function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	public function afterExtract($extractRet = null, $args = array()) {
+		return $extractRet;
 	}
 	
 }

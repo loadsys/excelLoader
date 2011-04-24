@@ -31,9 +31,7 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	 * @var array
 	 * @access public
 	 */
-	public $mapMethods = array(
-		'/^excel(.)*/' => '_call'
-	);
+	public $mapMethods = array();
 	
 	/**
 	 * Holds instances of already used adapters.
@@ -60,32 +58,20 @@ class ExcelLoaderBehavior extends ModelBehavior {
 		$this->settings[$a] = Set::merge($defaults, $config);
 	}
 	
+	
 	/**
-	 * excelLoad function.
+	 * The method that calls extract method on the assigned adapter.
 	 * 
 	 * @access public
 	 * @param mixed &$model
-	 * @param mixed $file (default: null)
+	 * @param string $file
 	 * @return void
 	 */
-	public function excelLoad(&$model, $file = null) {
-	
-	}
-	
-	/**
-	 * _call function.
-	 * 
-	 * @access public
-	 * @param mixed &$model
-	 * @param mixed $file (default: null)
-	 * @return void
-	 */
-	public function _call(&$model, $method, $file = null) {
+	public function extract(&$model, $file = null) {
 		if (!$file) {
 			return false;
 		}
-		$method = Inflector::variable(preg_replace('/^excel/', '', $method));
-		$args = array_slice(func_get_args(), 3);
+		$args = array_slice(func_get_args(), 2);
 		$data = $this->_parseFile($file);
 		$spreadsheet = array();
 		$ret = false;
@@ -95,22 +81,23 @@ class ExcelLoaderBehavior extends ModelBehavior {
 			$sheet++;
 		}
 		$adapter =& $this->_getInstance($this->settings[$model->alias]);
-		if (method_exists($adapter, 'before'.Inflector::camelize($method))) {
-			$continue = $adapter->{'before'.Inflector::camelize($method)}($args);
+		if (method_exists($adapter, 'beforeExtract')) {
+			$args = $adapter->beforeExtract($args);
 		}
-		if ($continue !== false) {
-			if (method_exists($adapter, $method)) {
-				$ret = $adapter->{$method}($spreadsheet, $args);
+		if ($args !== false) {
+			if (method_exists($adapter, 'extract')) {
+				$ret = $adapter->extract($spreadsheet, $args);
 			}
-			if (method_exists($adapter, 'after'.Inflector::camelize($method))) {
-				$ret = $adapter->{'after'.Inflector::camelize($method)}($ret, $args);
+			if (method_exists($adapter, 'afterExtract')) {
+				$ret = $adapter->afterExtract($ret, $args);
 			}
 		}
 		return $ret;
 	}
 	
 	/**
-	 * _toArray function.
+	 * Converts an instance of the Spreadsheet_Excel_Reader into
+	 * an associative array of sheets/rows/columns.
 	 * 
 	 * @access public
 	 * @param mixed $data
@@ -128,7 +115,9 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	}
 	
 	/**
-	 * _parseFile function.
+	 * Takes the file path and checks if a file exists. If it doesn't,
+	 * method returns false. If it does exist the Spreadsheet_Excel_Reader
+	 * is returned.
 	 * 
 	 * @access public
 	 * @param mixed $file
@@ -140,10 +129,11 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	}
 	
 	/**
-	 * _getInstance function.
+	 * Retreives an instance of an adapter if the class/file exists.
+	 * Will save an instance of an adapter incase it needs to be reused.
 	 * 
 	 * @access public
-	 * @param mixed $adapter
+	 * @param array $settings
 	 * @return void
 	 */
 	public function _getInstance($settings) {
