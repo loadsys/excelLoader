@@ -42,7 +42,7 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	public $instances = array();
 
 	/**
-	 * Initiate My Behavior
+	 * Initiate Behavior
 	 *
 	 * @param object $model
 	 * @param array $config
@@ -53,7 +53,8 @@ class ExcelLoaderBehavior extends ModelBehavior {
 		$a = $model->alias;
 		$defaults = array(
 			'adapter' => 'default',
-			'path' => APP.'libs'.DS.'excel_adapters'
+			'path' => APP.'libs'.DS.'excel_adapters',
+			'file_path' => APP.'webroot'.DS.'files'
 		);
 		$this->settings[$a] = Set::merge($defaults, $config);
 	}
@@ -67,20 +68,22 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	 * @param string $file
 	 * @return void
 	 */
-	public function extract(&$model, $file = null) {
-		if (!$file) {
-			return false;
-		}
-		$args = array_slice(func_get_args(), 2);
-		$data = $this->_parseFile($file);
-		$spreadsheet = array();
+	public function extract(&$model, $file = null, $options = array()) {
 		$ret = false;
-		$sheet = 0;
-		while ($data->rowcount($sheet) > 0) {
-			$spreadsheet[$sheet] = $this->_toArray($data, $sheet));
-			$sheet++;
+		if (!$file) {
+			return $ret;
 		}
-		$adapter =& $this->_getInstance($this->settings[$model->alias]);
+		$args = array_slice(func_get_args(), 3);
+		$settings = $this->settings[$model->alias];
+		if (!empty($options)) {
+			$settings = Set::merge($settings, $options);
+		}
+		$data = $this->_parseFile($file);
+		if (!$data) {
+			return $data;
+		}
+		$spreadsheet = $this->_toArray($data);
+		$adapter =& $this->_getInstance($settings);
 		if (method_exists($adapter, 'beforeExtract')) {
 			$args = $adapter->beforeExtract($args);
 		}
@@ -96,25 +99,6 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	}
 	
 	/**
-	 * Converts an instance of the Spreadsheet_Excel_Reader into
-	 * an associative array of sheets/rows/columns.
-	 * 
-	 * @access public
-	 * @param mixed $data
-	 * @param int $sheet (default: 0)
-	 * @return void
-	 */
-	public function _toArray($data, $sheet = 0) {
-		$arr = array();
-		for ($row = 1; $row <= $data->rowcount($sheet); $row++) {
-			for ($col = 1; $col <= $data->colcount($sheet); $col++) {
-				$arr[$row - 1][$col - 1] = $data->val($row, $col, $sheet);
-			}
-		}
-		return $arr;
-	}
-	
-	/**
 	 * Takes the file path and checks if a file exists. If it doesn't,
 	 * method returns false. If it does exist the Spreadsheet_Excel_Reader
 	 * is returned.
@@ -123,8 +107,27 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	 * @param mixed $file
 	 * @return void
 	 */
-	public function _parseFile($file) {
-		$data = new Spreadsheet_Excel_Reader($file, true);
+	public function _parseFile($file, $settings) {
+		$path = $settings['file_path'];
+		if (strpos('/', $file) !== false) {
+			$pieces = explode('/', $file);
+			$file = array_pop($pieces);
+			$path = str_replace('//', '/', implode('/', $pieces));
+		}
+		$file = $file.'/'.$file;
+		if (strpos(array('.xls', '.xlsx'), $file) === false) {
+			if (file_exists($file.'.xls')) {
+				$file .= '.xls';
+			} else if (file_exists($file, '.xlsx')) {
+				$file .= '.xlsx';
+			} else {
+				$file = false;
+			}
+		}
+		$data = false;
+		if ($file && file_exists($file)) {
+			$data = new Spreadsheet_Excel_Reader($file, true);
+		}
 		return $data;
 	}
 	
@@ -145,6 +148,28 @@ class ExcelLoaderBehavior extends ModelBehavior {
 			}
 		}
 		return $this->instances[$adapter];
+	}
+	
+	/**
+	 * Converts an instance of the Spreadsheet_Excel_Reader into
+	 * an associative array of sheets/rows/columns.
+	 * 
+	 * @access public
+	 * @param mixed $data
+	 * @return void
+	 */
+	public function _toArray($data) {
+		$arr = array();
+		$sheet = 0;
+		while ($data->rowcount($sheet) > 0) {
+			for ($row = 1; $row <= $data->rowcount($sheet); $row++) {
+				for ($col = 1; $col <= $data->colcount($sheet); $col++) {
+					$arr[$row - 1][$col - 1] = $data->val($row, $col, $sheet);
+				}
+			}
+			$sheet++;
+		}
+		return $arr;
 	}
 
 }
