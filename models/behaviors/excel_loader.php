@@ -9,6 +9,9 @@
  * @version 1
  * @copyright Loadsys
  **/
+
+App::import('Vendor', 'ExcelLoader.excel/excel_reader2');
+
 class ExcelLoaderBehavior extends ModelBehavior {
 
 	/**
@@ -68,18 +71,18 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	 * @param string $file
 	 * @return void
 	 */
-	public function extract(&$model, $file = null, $options = array()) {
+	public function extract(&$model, $file = null, $options = array(), $args = array()) {
 		$ret = false;
 		if (!$file) {
 			return $ret;
 		}
-		$args = array_slice(func_get_args(), 3);
 		$settings = $this->settings[$model->alias];
 		if (!empty($options)) {
 			$settings = Set::merge($settings, $options);
 		}
-		$data = $this->_parseFile($file);
+		$data = $this->_parseFile($file, $settings);
 		if (!$data) {
+			debug('could not find file');
 			return $data;
 		}
 		$spreadsheet = $this->_toArray($data);
@@ -114,8 +117,8 @@ class ExcelLoaderBehavior extends ModelBehavior {
 			$file = array_pop($pieces);
 			$path = str_replace('//', '/', implode('/', $pieces));
 		}
-		$file = $file.'/'.$file;
-		if (strpos(array('.xls', '.xlsx'), $file) === false) {
+		$file = $path.'/'.$file;
+		if (strpos($file, '.xls') === false && strpos($file, '.xlsx') === false) {
 			if (file_exists($file.'.xls')) {
 				$file .= '.xls';
 			} else if (file_exists($file, '.xlsx')) {
@@ -144,7 +147,8 @@ class ExcelLoaderBehavior extends ModelBehavior {
 		if (!array_key_exists($adapter, $this->instances)) {
 			if (file_exists($path.DS.$adapter.'.php')) {
 				require_once($path.DS.$adapter.'.php');
-				$this->instances[$instance] = new {ucfirst($adapter).'ExcelAdapter'}();
+				$class = ucfirst($adapter).'ExcelAdapter';
+				$this->instances[$adapter] = new $class();
 			}
 		}
 		return $this->instances[$adapter];
@@ -161,10 +165,11 @@ class ExcelLoaderBehavior extends ModelBehavior {
 	public function _toArray($data) {
 		$arr = array();
 		$sheet = 0;
+		$data->rowcount(1);
 		while ($data->rowcount($sheet) > 0) {
 			for ($row = 1; $row <= $data->rowcount($sheet); $row++) {
 				for ($col = 1; $col <= $data->colcount($sheet); $col++) {
-					$arr[$row - 1][$col - 1] = $data->val($row, $col, $sheet);
+					$arr[$sheet][$row - 1][$col - 1] = $data->val($row, $col, $sheet);
 				}
 			}
 			$sheet++;

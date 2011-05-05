@@ -387,10 +387,10 @@ class Spreadsheet_Excel_Reader {
 		return '';
 	}
 	function rowcount($sheet=0) {
-		return $this->sheets[$sheet]['numRows'];
+		return isset($this->sheets[$sheet]) ? $this->sheets[$sheet]['numRows'] : false;
 	}
 	function colcount($sheet=0) {
-		return $this->sheets[$sheet]['numCols'];
+		return isset($this->sheets[$sheet]) ? $this->sheets[$sheet]['numCols'] : false;
 	}
 	function colwidth($col,$sheet=0) {
 		// Col width is actually the width of the number 0. So we have to estimate and come close
